@@ -1,8 +1,19 @@
-# GitHub: https://github.com/oscar2song/pdf-processor
+#!/usr/bin/env python3
+"""
+PDF Processor - Comprehensive PDF Processing Toolkit
+====================================================
+
+A comprehensive Python toolkit for PDF processing operations including
+optimization, pagination, merging, and conversion.
+
+GitHub: https://github.com/oscar2song/pdf-processor
+Author: Oscar Song
+"""
 
 import fitz  # PyMuPDF
 import os
 import sys
+import glob
 from pathlib import Path
 import argparse
 from datetime import datetime
@@ -214,9 +225,10 @@ class PDFProcessor:
 
     def add_page_numbers(self, input_pdf_path: str, output_pdf_path: str,
                          position: str = "bottom-right", start_page: int = 1,
-                         font_size: int = 12, margin: int = 50) -> bool:
+                         font_size: int = 12, margin: int = 50,
+                         preserve_signatures: bool = True) -> bool:
         """
-        Add page numbers to PDF
+        Add page numbers to PDF with signature preservation
         """
         try:
             self.log_print(f"📄 Adding page numbers to: {input_pdf_path}")
@@ -247,13 +259,37 @@ class PDFProcessor:
                 else:
                     point = fitz.Point(page_rect.width - margin, page_rect.height - margin)
 
-                # Insert text
-                page.insert_text(point, text, fontsize=font_size, color=(0, 0, 0))
+                # Insert text with signature-friendly font
+                page.insert_text(
+                    point,
+                    text,
+                    fontsize=font_size,
+                    color=(0, 0, 0),
+                    fontname="helv"  # Arial/Helvetica for better compatibility
+                )
 
-            # Save
+            # Save with signature preservation settings
             output_dir = Path(output_pdf_path).parent
             output_dir.mkdir(parents=True, exist_ok=True)
-            doc.save(output_pdf_path)
+
+            if preserve_signatures:
+                # Maximum preservation settings
+                doc.save(
+                    output_pdf_path,
+                    garbage=0,  # Don't remove any objects
+                    clean=False,  # Don't clean/optimize
+                    deflate=False,  # Don't compress
+                    deflate_images=False,  # Don't compress images
+                    deflate_fonts=False,  # Don't compress fonts
+                    incremental=False,  # Full save but preserve structure
+                    ascii=False,  # Keep binary data
+                    expand=0,  # Don't expand
+                    linear=False  # Don't linearize
+                )
+            else:
+                # Standard save with optimization
+                doc.save(output_pdf_path)
+
             doc.close()
 
             self.log_print(f"✅ Added page numbers to {total_pages} pages")
@@ -264,112 +300,237 @@ class PDFProcessor:
             return False
 
     def batch_add_page_numbers(self, input_folder: str, output_folder: str,
-                               position: str = "bottom-right", **kwargs) -> Dict[str, Any]:
+                               position: str = "bottom-right", start_page: int = 1,
+                               font_size: int = 12, margin: int = 50,
+                               preserve_signatures: bool = True,
+                               continuous_numbering: bool = False) -> Dict[str, Any]:
         """
-        Batch add page numbers to all PDFs in folder
+        Batch add page numbers to all PDFs in folder (files kept separate)
         """
         input_path = Path(input_folder)
         output_path = Path(output_folder)
         output_path.mkdir(parents=True, exist_ok=True)
 
-        pdf_files = list(input_path.glob("*.pdf"))
+        # Get all PDF files, sorted naturally
+        pdf_files = sorted(list(input_path.glob("*.pdf")), key=lambda x: x.name)
 
         if not pdf_files:
+            self.log_print(f"❌ No PDF files found in {input_folder}", "warning")
             return {"success": False, "message": "No PDF files found"}
 
-        self.log_print(f"📄 Adding page numbers to {len(pdf_files)} PDFs")
+        self.log_print(f"📄 Adding page numbers to {len(pdf_files)} PDFs (keeping files separate)")
+        self.log_print(f"🎯 Position: {position}, Font size: {font_size}, Margin: {margin}")
+        self.log_print(f"🔒 Preserve signatures: {preserve_signatures}")
+        self.log_print(f"🔢 Continuous numbering: {continuous_numbering}")
 
-        stats = {"processed": 0, "failed": 0, "files": []}
+        stats = {"processed": 0, "failed": 0, "files": [], "total_pages": 0}
+        current_page_number = start_page
 
-        for pdf_file in pdf_files:
+        for i, pdf_file in enumerate(pdf_files, 1):
+            self.log_print(f"\n📄 Processing {i}/{len(pdf_files)}: {pdf_file.name}")
+
+            # Determine output filename
             output_filename = f"{pdf_file.stem}_numbered.pdf"
             output_file_path = output_path / output_filename
 
-            success = self.add_page_numbers(str(pdf_file), str(output_file_path), position, **kwargs)
+            # Determine starting page number for this file
+            file_start_page = current_page_number if continuous_numbering else start_page
 
-            if success:
-                stats["processed"] += 1
-                stats["files"].append(str(output_file_path))
-            else:
+            try:
+                # Get page count for this file
+                doc = fitz.open(str(pdf_file))
+                page_count = len(doc)
+                doc.close()
+
+                self.log_print(f"   📖 Pages: {page_count}, Starting at page {file_start_page}")
+
+                # Add page numbers to this file
+                success = self.add_page_numbers(
+                    str(pdf_file),
+                    str(output_file_path),
+                    position=position,
+                    start_page=file_start_page,
+                    font_size=font_size,
+                    margin=margin,
+                    preserve_signatures=preserve_signatures
+                )
+
+                if success:
+                    stats["processed"] += 1
+                    stats["total_pages"] += page_count
+                    stats["files"].append({
+                        "original": str(pdf_file),
+                        "numbered": str(output_file_path),
+                        "pages": page_count,
+                        "start_page": file_start_page,
+                        "end_page": file_start_page + page_count - 1
+                    })
+
+                    # Update current page number for continuous numbering
+                    if continuous_numbering:
+                        current_page_number += page_count
+
+                    self.log_print(f"   ✅ Success: Pages {file_start_page} to {file_start_page + page_count - 1}")
+                else:
+                    stats["failed"] += 1
+                    self.log_print(f"   ❌ Failed to process {pdf_file.name}")
+
+            except Exception as e:
                 stats["failed"] += 1
+                self.log_print(f"   ❌ Error processing {pdf_file.name}: {str(e)}", "error")
 
-        self.log_print(f"🎉 Batch numbering complete! Processed: {stats['processed']}, Failed: {stats['failed']}")
+        # Final report
+        self.log_print(f"\n🎉 Batch page numbering complete!")
+        self.log_print(f"✅ Processed: {stats['processed']} files")
+        self.log_print(f"❌ Failed: {stats['failed']} files")
+        self.log_print(f"📄 Total pages numbered: {stats['total_pages']}")
+
+        if continuous_numbering and stats['processed'] > 0:
+            self.log_print(f"🔢 Page range: {start_page} to {current_page_number - 1}")
+
         return stats
 
     # ========== MERGE FUNCTIONS ==========
 
-    def merge_pdfs(self, input_files: List[str], output_pdf_path: str,
-                   add_bookmarks: bool = True) -> bool:
+    def merge_pdfs_with_page_numbers(self, input_folder_or_files, output_path,
+                                     add_page_numbers: bool = True,
+                                     font_size: int = 12, right_margin: int = 72,
+                                     bottom_margin: int = 54, preserve_signatures: bool = True) -> bool:
         """
-        Merge multiple PDF files into one
+        Merge multiple PDF files with optional page numbering while preserving signatures
         """
         try:
-            self.log_print(f"🔗 Merging {len(input_files)} PDF files")
+            # Get list of PDF files
+            if isinstance(input_folder_or_files, str) and os.path.isdir(input_folder_or_files):
+                # If it's a folder, get all PDF files sorted
+                pdf_files = sorted(list(Path(input_folder_or_files).glob("*.pdf")), key=lambda x: x.name)
+                pdf_files = [str(f) for f in pdf_files]
+            elif isinstance(input_folder_or_files, list):
+                # If it's a list of files
+                pdf_files = input_folder_or_files
+            else:
+                raise ValueError("input_folder_or_files must be a folder path or list of file paths")
 
-            output_doc = fitz.open()
+            if not pdf_files:
+                self.log_print("❌ No PDF files found", "error")
+                return False
 
-            for i, pdf_file in enumerate(input_files):
-                self.log_print(f"📄 Adding: {Path(pdf_file).name}")
+            self.log_print(f"🔗 Merging {len(pdf_files)} PDF files:")
+            for i, file in enumerate(pdf_files, 1):
+                self.log_print(f"  {i}. {os.path.basename(file)}")
 
-                input_doc = fitz.open(pdf_file)
-                output_doc.insert_pdf(input_doc)
+            if add_page_numbers:
+                self.log_print("📄 Page numbers will be added")
+            else:
+                self.log_print("📄 Merge only - no page numbers will be added")
 
-                # Add bookmark
-                if add_bookmarks:
-                    bookmark_title = Path(pdf_file).stem
-                    # Calculate page number where this PDF starts
-                    page_num = sum(len(fitz.open(f)) for f in input_files[:i])
-                    output_doc.set_toc_item(0, bookmark_title, page_num + 1)
+            # Create new document for merged result
+            merged_doc = fitz.open()
+            page_counter = 1
 
-                input_doc.close()
+            # Process each PDF file
+            for pdf_file in pdf_files:
+                self.log_print(f"\nProcessing: {os.path.basename(pdf_file)}")
 
-            # Save merged PDF
-            output_dir = Path(output_pdf_path).parent
+                # Open current PDF
+                current_doc = fitz.open(pdf_file)
+                pages_in_current = len(current_doc)
+
+                # Insert entire document at once to better preserve structure
+                merged_doc.insert_pdf(current_doc)
+
+                # Add page numbers only if flag is True
+                if add_page_numbers:
+                    # Add page numbers to the newly inserted pages
+                    for i in range(pages_in_current):
+                        page_index = len(merged_doc) - pages_in_current + i
+                        merged_page = merged_doc.load_page(page_index)
+                        rect = merged_page.rect
+
+                        # Add page number
+                        text = str(page_counter)
+                        point = fitz.Point(rect.width - right_margin, rect.height - bottom_margin)
+
+                        merged_page.insert_text(
+                            point,
+                            text,
+                            fontsize=font_size,
+                            color=(0, 0, 0),
+                            fontname="helv"  # Arial/Helvetica
+                        )
+
+                        page_counter += 1
+                else:
+                    # Just increment counter for tracking
+                    page_counter += pages_in_current
+
+                self.log_print(f"  Added {pages_in_current} pages")
+                current_doc.close()
+
+            # Save merged document with preservation settings
+            output_dir = Path(output_path).parent
             output_dir.mkdir(parents=True, exist_ok=True)
-            output_doc.save(output_pdf_path)
-            output_doc.close()
 
-            final_size = self.get_file_size_mb(output_pdf_path)
-            self.log_print(f"✅ Merged PDF saved: {output_pdf_path} ({final_size:.2f}MB)")
+            self.log_print(f"\nSaving merged PDF to: {output_path}")
+
+            if preserve_signatures:
+                # Maximum preservation settings
+                merged_doc.save(
+                    output_path,
+                    garbage=0,  # Don't remove any objects
+                    clean=False,  # Don't clean/optimize
+                    deflate=False,  # Don't compress
+                    deflate_images=False,  # Don't compress images
+                    deflate_fonts=False,  # Don't compress fonts
+                    incremental=False,  # Full save but preserve structure
+                    ascii=False,  # Keep binary data
+                    expand=0,  # Don't expand
+                    linear=False  # Don't linearize
+                )
+            else:
+                # Standard save with optimization
+                merged_doc.save(output_path, garbage=4, clean=True, deflate=True)
+
+            merged_doc.close()
+
+            action = "merged with page numbers" if add_page_numbers else "merged without page numbers"
+            self.log_print(f"✅ Successfully {action} {len(pdf_files)} PDFs into {output_path}")
+            self.log_print(f"📄 Total pages: {page_counter - 1}")
+
             return True
 
         except Exception as e:
             self.log_print(f"❌ Error merging PDFs: {str(e)}", "error")
             return False
 
-    def merge_folder_pdfs(self, input_folder: str, output_pdf_path: str,
-                          sort_by: str = "name", add_page_numbers: bool = False) -> bool:
+    def merge_specific_files(self, file_list: List[str], output_path: str,
+                             add_page_numbers: bool = True,
+                             preserve_signatures: bool = True) -> bool:
         """
-        Merge all PDFs in a folder
+        Merge specific PDF files in the exact order provided
         """
-        input_path = Path(input_folder)
-        pdf_files = list(input_path.glob("*.pdf"))
+        return self.merge_pdfs_with_page_numbers(file_list, output_path, add_page_numbers,
+                                                 preserve_signatures=preserve_signatures)
+
+    def merge_folder_pdfs(self, folder_path: str, output_path: str,
+                          add_page_numbers: bool = True,
+                          preserve_signatures: bool = True,
+                          pattern: str = "*.pdf") -> bool:
+        """
+        Merge all PDFs in a folder (sorted alphabetically)
+        """
+        pdf_files = sorted(list(Path(folder_path).glob(pattern)), key=lambda x: x.name)
 
         if not pdf_files:
-            self.log_print(f"❌ No PDF files found in {input_folder}", "warning")
+            self.log_print(f"❌ No PDF files found in {folder_path}", "warning")
             return False
 
-        # Sort files
-        if sort_by == "name":
-            pdf_files.sort(key=lambda x: x.name)
-        elif sort_by == "date":
-            pdf_files.sort(key=lambda x: x.stat().st_mtime)
-        elif sort_by == "size":
-            pdf_files.sort(key=lambda x: x.stat().st_size)
-
-        self.log_print(f"📁 Merging {len(pdf_files)} PDFs from folder")
-
-        # Merge
-        success = self.merge_pdfs([str(f) for f in pdf_files], output_pdf_path)
-
-        # Add page numbers if requested
-        if success and add_page_numbers:
-            temp_path = output_pdf_path.replace(".pdf", "_temp.pdf")
-            shutil.move(output_pdf_path, temp_path)
-            self.add_page_numbers(temp_path, output_pdf_path)
-            os.remove(temp_path)
-
-        return success
+        return self.merge_pdfs_with_page_numbers(
+            [str(f) for f in pdf_files],
+            output_path,
+            add_page_numbers,
+            preserve_signatures=preserve_signatures
+        )
 
     # ========== CONVERSION FUNCTIONS ==========
 
@@ -531,22 +692,32 @@ def main():
     Command line interface for PDF Processor
     """
     parser = argparse.ArgumentParser(description="PDF Processor - Comprehensive PDF toolkit")
-    parser.add_argument("command", choices=[
+    parser.add_argument("command", nargs='?', choices=[
         "optimize", "batch-optimize", "paginate", "batch-paginate",
         "merge", "merge-folder", "pdf-to-word", "batch-pdf-to-word",
         "analyze", "interactive"
     ], help="Command to execute")
 
-    parser.add_argument("--input", "-i", required=False, help="Input file or folder")
-    parser.add_argument("--output", "-o", required=False, help="Output file or folder")
+    parser.add_argument("--input", "-i", help="Input file or folder")
+    parser.add_argument("--output", "-o", help="Output file or folder")
     parser.add_argument("--dpi", type=int, default=150, help="Target DPI for optimization")
     parser.add_argument("--quality", type=int, default=70, help="JPEG quality (0-100)")
     parser.add_argument("--position", default="bottom-right", help="Page number position")
+    parser.add_argument("--continuous", action="store_true", help="Use continuous numbering across files")
+    parser.add_argument("--preserve-signatures", action="store_true", default=True,
+                        help="Preserve signatures (default: True)")
+    parser.add_argument("--no-preserve-signatures", action="store_false", dest="preserve_signatures",
+                        help="Don't preserve signatures")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
 
     processor = PDFProcessor(verbose=args.verbose)
+
+    # If no command specified, run interactive mode
+    if not args.command:
+        interactive_mode(processor)
+        return
 
     if args.command == "interactive":
         interactive_mode(processor)
@@ -559,15 +730,64 @@ def main():
         if not args.input or not args.output:
             print("❌ --input and --output required for batch-optimize command")
             return
+    elif args.command == "batch-optimize":
+        if not args.input or not args.output:
+            print("❌ --input and --output required for batch-optimize command")
+            return
         processor.batch_optimize_pdfs(args.input, args.output, target_dpi=args.dpi, jpeg_quality=args.quality)
+    elif args.command == "paginate":
+        if not args.input or not args.output:
+            print("❌ --input and --output required for paginate command")
+            return
+        processor.add_page_numbers(args.input, args.output, position=args.position,
+                                   preserve_signatures=args.preserve_signatures)
+    elif args.command == "batch-paginate":
+        if not args.input or not args.output:
+            print("❌ --input and --output required for batch-paginate command")
+            return
+        processor.batch_add_page_numbers(
+            args.input,
+            args.output,
+            position=args.position,
+            continuous_numbering=args.continuous,
+            preserve_signatures=args.preserve_signatures
+        )
+    elif args.command == "merge":
+        if not args.input or not args.output:
+            print("❌ --input and --output required for merge command")
+            return
+        if os.path.isdir(args.input):
+            processor.merge_folder_pdfs(args.input, args.output, preserve_signatures=args.preserve_signatures)
+        else:
+            # Assume it's a comma-separated list of files
+            files = args.input.split(',')
+            processor.merge_specific_files(files, args.output, preserve_signatures=args.preserve_signatures)
+    elif args.command == "merge-folder":
+        if not args.input or not args.output:
+            print("❌ --input and --output required for merge-folder command")
+            return
+        processor.merge_folder_pdfs(args.input, args.output, preserve_signatures=args.preserve_signatures)
+    elif args.command == "pdf-to-word":
+        if not args.input or not args.output:
+            print("❌ --input and --output required for pdf-to-word command")
+            return
+        if os.path.isdir(args.input):
+            processor.batch_pdf_to_word(args.input, args.output)
+        else:
+            processor.pdf_to_word(args.input, args.output)
+    elif args.command == "batch-pdf-to-word":
+        if not args.input or not args.output:
+            print("❌ --input and --output required for batch-pdf-to-word command")
+            return
+        processor.batch_pdf_to_word(args.input, args.output)
     elif args.command == "analyze":
         if not args.input:
             print("❌ --input required for analyze command")
             return
         info = processor.analyze_pdf(args.input)
         print(json.dumps(info, indent=2))
-
-    # Add more command implementations as needed
+    else:
+        print(f"❌ Command '{args.command}' not implemented")
 
 
 def interactive_mode(processor: PDFProcessor):
@@ -580,7 +800,7 @@ def interactive_mode(processor: PDFProcessor):
     while True:
         print("\n📋 Available Commands:")
         print("1. Optimize PDF(s)")
-        print("2. Add Page Numbers")
+        print("2. Add Page Numbers (Keep Files Separate)")
         print("3. Merge PDFs")
         print("4. Convert PDF to Word")
         print("5. Analyze PDF")
@@ -592,6 +812,10 @@ def interactive_mode(processor: PDFProcessor):
             input_path = input("📁 Enter input file or folder: ").strip()
             output_path = input("📁 Enter output file or folder: ").strip()
 
+            if not input_path or not output_path:
+                print("❌ Both input and output paths are required")
+                continue
+
             if Path(input_path).is_file():
                 processor.optimize_pdf(input_path, output_path)
             else:
@@ -600,23 +824,52 @@ def interactive_mode(processor: PDFProcessor):
         elif choice == "2":
             input_path = input("📁 Enter input file or folder: ").strip()
             output_path = input("📁 Enter output file or folder: ").strip()
+
+            if not input_path or not output_path:
+                print("❌ Both input and output paths are required")
+                continue
+
             position = input("📄 Position (bottom-right/bottom-center/top-right): ").strip() or "bottom-right"
 
             if Path(input_path).is_file():
                 processor.add_page_numbers(input_path, output_path, position)
             else:
-                processor.batch_add_page_numbers(input_path, output_path, position)
+                continuous = input("🔢 Use continuous numbering across files? (y/n): ").strip().lower() == 'y'
+                preserve_sigs = input("🔒 Preserve signatures? (y/n): ").strip().lower() != 'n'  # Default to yes
+
+                processor.batch_add_page_numbers(
+                    input_path,
+                    output_path,
+                    position=position,
+                    continuous_numbering=continuous,
+                    preserve_signatures=preserve_sigs
+                )
 
         elif choice == "3":
             input_folder = input("📁 Enter folder with PDFs to merge: ").strip()
             output_file = input("📄 Enter output merged PDF path: ").strip()
-            add_numbers = input("Add page numbers? (y/n): ").strip().lower() == 'y'
 
-            processor.merge_folder_pdfs(input_folder, output_file, add_page_numbers=add_numbers)
+            if not input_folder or not output_file:
+                print("❌ Both input folder and output file are required")
+                continue
+
+            add_numbers = input("🔢 Add page numbers? (y/n): ").strip().lower() == 'y'
+            preserve_sigs = input("🔒 Preserve signatures? (y/n): ").strip().lower() != 'n'  # Default to yes
+
+            processor.merge_folder_pdfs(
+                input_folder,
+                output_file,
+                add_page_numbers=add_numbers,
+                preserve_signatures=preserve_sigs
+            )
 
         elif choice == "4":
             input_path = input("📁 Enter PDF file or folder: ").strip()
             output_path = input("📁 Enter output Word file or folder: ").strip()
+
+            if not input_path or not output_path:
+                print("❌ Both input and output paths are required")
+                continue
 
             if Path(input_path).is_file():
                 processor.pdf_to_word(input_path, output_path)
@@ -625,7 +878,18 @@ def interactive_mode(processor: PDFProcessor):
 
         elif choice == "5":
             input_file = input("📄 Enter PDF file to analyze: ").strip()
+
+            if not input_file:
+                print("❌ Input file is required")
+                continue
+
+            if not Path(input_file).exists():
+                print(f"❌ File not found: {input_file}")
+                continue
+
             info = processor.analyze_pdf(input_file)
+            print("\n📊 PDF Analysis Results:")
+            print("=" * 30)
             print(json.dumps(info, indent=2))
 
         elif choice == "6":
@@ -637,10 +901,4 @@ def interactive_mode(processor: PDFProcessor):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        # No arguments - run interactive mode
-        processor = PDFProcessor()
-        interactive_mode(processor)
-    else:
-        # Run with command line arguments
-        main()
+    main()

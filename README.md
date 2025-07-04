@@ -10,10 +10,12 @@ A comprehensive Python toolkit for PDF processing operations including optimizat
 
 - **📉 PDF Optimization**: Compress and optimize PDF files for smaller sizes (up to 90% reduction)
 - **🔢 Page Numbering**: Add page numbers to PDFs in various positions
+- **📄 Batch Page Numbering**: Add page numbers to multiple PDFs (keep files separate)
 - **🔗 PDF Merging**: Merge multiple PDFs into one document with bookmarks
 - **📝 PDF to Word**: Convert PDFs to Word documents with layout preservation
 - **📊 PDF Analysis**: Analyze PDF properties, metadata, and structure
 - **🔄 Batch Processing**: Process multiple files at once efficiently
+- **🔒 Signature Preservation**: Preserve digital signatures and form data
 - **🎛️ Interactive Mode**: User-friendly command-line interface
 - **🛠️ Command Line Tools**: Full CLI support for automation
 
@@ -64,8 +66,14 @@ python pdf_processor.py optimize -i input.pdf -o output.pdf --dpi 150 --quality 
 # Batch optimize PDFs (aggressive compression)
 python pdf_processor.py batch-optimize -i input_folder -o output_folder
 
-# Add page numbers
+# Add page numbers to single PDF
 python pdf_processor.py paginate -i input.pdf -o output.pdf --position bottom-right
+
+# Batch add page numbers (keep files separate)
+python pdf_processor.py batch-paginate -i input_folder -o output_folder --position bottom-center
+
+# Batch add page numbers with continuous numbering across files
+python pdf_processor.py batch-paginate -i input_folder -o output_folder --continuous
 
 # Merge PDFs in a folder
 python pdf_processor.py merge-folder -i pdf_folder -o merged.pdf
@@ -114,7 +122,7 @@ print(f"Total size reduction: {stats['total_original_size'] - stats['total_final
 
 ### 2. Page Numbering
 
-Add page numbers to PDFs in various positions:
+Add page numbers to PDFs in various positions with signature preservation:
 
 ```python
 # Add page numbers to single PDF
@@ -124,14 +132,26 @@ processor.add_page_numbers(
     position="bottom-right",
     start_page=1,
     font_size=12,
-    margin=50
+    margin=50,
+    preserve_signatures=True
 )
 
-# Batch add page numbers
+# Batch add page numbers (keep files separate)
 stats = processor.batch_add_page_numbers(
     "input_folder", 
     "output_folder", 
-    position="bottom-center"
+    position="bottom-center",
+    continuous_numbering=False,  # Each file starts at page 1
+    preserve_signatures=True
+)
+
+# Batch add page numbers with continuous numbering across files
+stats = processor.batch_add_page_numbers(
+    "input_folder", 
+    "output_folder", 
+    position="bottom-right",
+    continuous_numbering=True,  # Continue numbering across files
+    preserve_signatures=True
 )
 ```
 
@@ -139,24 +159,41 @@ stats = processor.batch_add_page_numbers(
 - `bottom-right`, `bottom-center`, `bottom-left`
 - `top-right`, `top-center`, `top-left`
 
+**Batch Options:**
+- `continuous_numbering=False`: Each file starts at page 1 (default)
+- `continuous_numbering=True`: Continue numbering across all files
+- `preserve_signatures=True`: Preserve digital signatures (default)
+
 ### 3. PDF Merging
 
-Merge multiple PDFs into one document:
+Merge multiple PDFs into one document with signature preservation:
 
 ```python
 # Merge specific files
-processor.merge_pdfs(
+processor.merge_specific_files(
     ["file1.pdf", "file2.pdf", "file3.pdf"],
     "merged.pdf",
-    add_bookmarks=True
+    add_page_numbers=True,
+    preserve_signatures=True
 )
 
 # Merge all PDFs in a folder
 processor.merge_folder_pdfs(
     "pdf_folder",
     "merged_output.pdf",
-    sort_by="name",  # or "date", "size"
-    add_page_numbers=True
+    add_page_numbers=True,
+    preserve_signatures=True
+)
+
+# Advanced merging with custom settings
+processor.merge_pdfs_with_page_numbers(
+    "pdf_folder",  # or list of files
+    "merged.pdf",
+    add_page_numbers=True,
+    font_size=12,
+    right_margin=72,  # 1 inch from right
+    bottom_margin=54,  # 0.75 inch from bottom
+    preserve_signatures=True
 )
 ```
 
