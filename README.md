@@ -1,10 +1,11 @@
 # PDF Processor 📄
 
-A comprehensive Python toolkit for PDF processing operations including optimization, pagination, merging, and conversion.
+A comprehensive Python toolkit for PDF processing operations including optimization, pagination, merging, and conversion. Now with a **modern GUI interface**!
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub issues](https://img.shields.io/github/issues/oscar2song/pdf-processor)](https://github.com/oscar2song/pdf-processor/issues)
+[![GUI Available](https://img.shields.io/badge/GUI-Available-green.svg)](https://github.com/oscar2song/pdf-processor#gui-interface)
 
 ## 🚀 Features
 
@@ -16,7 +17,8 @@ A comprehensive Python toolkit for PDF processing operations including optimizat
 - **📊 PDF Analysis**: Analyze PDF properties, metadata, and structure
 - **🔄 Batch Processing**: Process multiple files at once efficiently
 - **🔒 Signature Preservation**: Preserve digital signatures and form data
-- **🎛️ Interactive Mode**: User-friendly command-line interface
+- **🎨 Modern GUI**: User-friendly graphical interface (NEW!)
+- **🎛️ Interactive Mode**: Command-line interface
 - **🛠️ Command Line Tools**: Full CLI support for automation
 
 ## 📋 Requirements
@@ -25,6 +27,7 @@ A comprehensive Python toolkit for PDF processing operations including optimizat
 - PyMuPDF (fitz)
 - pdf2docx (optional, for better PDF to Word conversion)
 - reportlab (optional, for advanced features)
+- tkinter (included with Python, for GUI)
 
 ## 🛠️ Installation
 
@@ -42,9 +45,31 @@ pip install -r requirements.txt
 pip install PyMuPDF pdf2docx reportlab
 ```
 
+### For GUI Support
+
+```bash
+pip install -r requirements_gui.txt
+```
+
 ## 🎯 Quick Start
 
-### Interactive Mode (Recommended for beginners)
+### 🎨 **GUI Interface** (Recommended for beginners)
+
+```bash
+python run_gui.py
+```
+
+**Features:**
+- **Modern tabbed interface** with 5 main sections
+- **Real-time progress bars** and status updates
+- **Drag & drop file selection** with browse buttons
+- **Settings preview** before processing
+- **Live logging** with collapsible log area
+- **Error handling** with user-friendly messages
+
+![GUI Screenshot](screenshots/gui_main.png)
+
+### 🎛️ **Interactive Mode** (Command-line friendly)
 
 ```bash
 python pdf_processor.py
@@ -52,12 +77,12 @@ python pdf_processor.py
 
 This will launch an interactive menu where you can:
 1. Optimize PDF(s)
-2. Add Page Numbers
+2. Add Page Numbers (Keep Files Separate)
 3. Merge PDFs
 4. Convert PDF to Word
 5. Analyze PDF
 
-### Command Line Usage
+### 🛠️ **Command Line Usage** (For automation)
 
 ```bash
 # Optimize a single PDF
@@ -265,6 +290,29 @@ stats = processor.batch_optimize_pdfs(
 report = processor.generate_report(stats, "processing_report.txt")
 ```
 
+## 🎨 GUI Interface
+
+### Launch GUI
+```bash
+python run_gui.py
+```
+
+### GUI Features
+- **📉 Optimization Tab**: Visual PDF compression with preset and custom settings
+- **📄 Page Numbers Tab**: Add page numbers with position control and batch options
+- **🔗 Merge PDFs Tab**: Merge files with drag-and-drop reordering
+- **📝 PDF to Word Tab**: Convert with multiple methods and batch processing
+- **📊 Analysis Tab**: Comprehensive PDF analysis with formatted results
+
+### GUI Benefits
+- **No command-line knowledge required**
+- **Real-time progress monitoring**
+- **Settings preview before processing**
+- **Professional error handling**
+- **Batch processing with visual feedback**
+
+For detailed GUI documentation, see [GUI_README.md](GUI_README.md).
+
 ## 📊 Examples
 
 Check the `examples/` folder for detailed usage examples:
@@ -273,6 +321,7 @@ Check the `examples/` folder for detailed usage examples:
 # Run examples
 cd examples
 python example_usage.py
+python batch_paging_example.py
 ```
 
 ## 🧪 Testing
@@ -299,6 +348,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Built with [PyMuPDF](https://pymupdf.readthedocs.io/) for PDF processing
 - Uses [pdf2docx](https://github.com/dothinking/pdf2docx) for PDF to Word conversion
+- GUI built with tkinter for cross-platform compatibility
 - Inspired by the need for efficient PDF processing tools
 
 ## 🐛 Issues & Support
@@ -306,18 +356,42 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Bug Reports**: [GitHub Issues](https://github.com/oscar2song/pdf-processor/issues)
 - **Feature Requests**: [GitHub Issues](https://github.com/oscar2song/pdf-processor/issues)
 - **Documentation**: [Wiki](https://github.com/oscar2song/pdf-processor/wiki)
+- **GUI Issues**: Please include screenshots and system information
 
 ## 📈 Roadmap
 
-- [ ] GUI interface with tkinter
+- [x] **GUI interface with tkinter** ✅ **COMPLETED**
 - [ ] Docker containerization
 - [ ] OCR integration for scanned PDFs
 - [ ] PDF form processing
 - [ ] Digital signature support
 - [ ] Cloud storage integration (AWS S3, Google Drive)
+- [ ] Web interface option
+- [ ] Mobile app version
+- [ ] Plugin system for extensions
+
+## 🎯 Use Cases
+
+**Perfect for:**
+- **Document management** - Organize and optimize PDF collections
+- **Office workflows** - Batch process business documents
+- **Academic research** - Prepare papers and references
+- **Legal documents** - Merge and number legal filings
+- **Publishing** - Optimize documents for web/print
+- **Archives** - Compress old documents for storage
 
 ---
 
 **Made with ❤️ by [Oscar Song](https://github.com/oscar2song)**
 
 ⭐ **If this project helped you, please give it a star!** ⭐
+
+---
+
+## 🚀 Quick Links
+
+- [📖 Full Documentation](https://github.com/oscar2song/pdf-processor/wiki)
+- [🎨 GUI Guide](GUI_README.md)
+- [📊 Examples](examples/)
+- [🐛 Report Issues](https://github.com/oscar2song/pdf-processor/issues)
+- [💡 Feature Requests](https://github.com/oscar2song/pdf-processor/issues)
